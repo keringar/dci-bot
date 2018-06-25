@@ -1,0 +1,6 @@
+[package]
+name = "dci-bot"
+version = "0.1.0"
+authors = ["warren <me@warrenhu.com>"]
+
+[dependencies]
