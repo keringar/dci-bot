@@ -4,3 +4,11 @@ version = "0.1.0"
 authors = ["warren <me@warrenhu.com>"]
 
 [dependencies]
+failure = "0.1.1"
+reqwest = "0.8.6"
+select = "0.4.2"
+chrono = "0.4.4"
+
+[dependencies.rusqlite]
+version = "0.13.0"
+features = ["chrono"]
