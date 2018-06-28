@@ -8,6 +8,7 @@ failure = "0.1.1"
 reqwest = "0.8.6"
 select = "0.4.2"
 chrono = "0.4.4"
+orca = "0.5.0"
 
 [dependencies.rusqlite]
 version = "0.13.0"
