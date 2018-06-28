@@ -1,5 +1,6 @@
 # DCI Bot
-This is a scraper that takes in the event listings and times and
+
+This is a scraper that takes in the DCI event listings and times and
 stores it in a sqlite3 database.
 
 ## Building
