@@ -4,21 +4,24 @@ use failure::Error;
 use reqwest;
 use rusqlite::Connection;
 use select::{document::Document, predicate::*};
+use serde_json;
 use strings::*;
 
 /// Event listing that is stored in the database
 #[derive(Debug)]
-struct EventListing {
+pub struct EventListing {
+    /// DCI url
+    pub event_url: String,
     /// Event date in a provided timezone
-    event_date: DateTime<FixedOffset>,
+    pub event_date: DateTime<FixedOffset>,
     /// City and state string. i.e. "Madson, OH"
-    location: String,
+    pub location: String,
     /// Name of the event. i.e. "Summer Music Games in Cincinnati"
-    title: String,
+    pub title: String,
     /// Human readable timezone (pulled from DCI, not the found time)
-    timezone: String,
+    pub timezone: String,
     /// Sorted lineup that contains a time and an associated event
-    lineup: Vec<(String, String)>,
+    pub lineup: Vec<(String, String)>,
 }
 
 #[derive(Debug)]
@@ -30,6 +33,20 @@ impl DCIScraper {
     pub fn new() -> Result<DCIScraper, Error> {
         let connection = Connection::open(DB_PATH)?;
 
+        // Create the basic table
+        connection.execute(
+            "CREATE TABLE IF NOT EXISTS events (
+             id INTEGER PRIMARY KEY,
+             url TEXT NOT NULL,
+             date TEXT NOT NULL,
+             location TEXT NOT NULL,
+             title TEXT NOT NULL UNIQUE,
+             timezone TEXT NOT NULL,
+             lineup TEXT NOT NULL
+             )",
+            &[],
+        )?;
+
         Ok(DCIScraper { connection })
     }
 
@@ -37,9 +54,11 @@ impl DCIScraper {
         use std::{thread, time};
 
         loop {
-            // If we found something, update the db
+            // Scrape tomorrow's entries
             for entry in self.scrape(Utc::now() + chrono::Duration::days(1))? {
-                self.write_to_db(&entry);
+                // If we found something, update the db
+                let row_count = self.write_to_db(&entry)?;
+                println!("Updated {} row(s)", row_count);
             }
 
             // Sleep an hour
@@ -47,7 +66,7 @@ impl DCIScraper {
         }
     }
 
-    // Scrape tomorrow's event list
+    // Scrape the specific date's events
     fn scrape(&self, date: DateTime<Utc>) -> Result<Vec<EventListing>, Error> {
         // Parse the webpage
         let response = self.get_event_page_at(&date)?;
@@ -106,6 +125,7 @@ impl DCIScraper {
                 };
 
                 let listing = EventListing {
+                    event_url: format!("{}{}", BASE_URL, details_url),
                     event_date,
                     location,
                     title,
@@ -161,8 +181,24 @@ impl DCIScraper {
         Ok((lineup, timezone))
     }
 
-    fn write_to_db(&self, event: &EventListing) {
-        println!("{:?}", event);
+    // Returns the number of rows updated upon success
+    fn write_to_db(&self, event: &EventListing) -> Result<i32, Error> {
+        let json_lineup = serde_json::to_string(&event.lineup)?;
+
+        let rows_updated = self.connection.execute(
+            "INSERT OR REPLACE INTO events (url, date, location, title, timezone, lineup)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            &[
+                &event.event_url,
+                &event.event_date,
+                &event.location,
+                &event.title,
+                &event.timezone,
+                &json_lineup,
+            ],
+        )?;
+
+        Ok(rows_updated)
     }
 
     fn get_event_page_at(&self, date: &DateTime<Utc>) -> Result<reqwest::Response, reqwest::Error> {
