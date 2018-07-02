@@ -62,8 +62,8 @@ impl DCIScraper {
                 println!("Updated {} row(s)", row_count);
             }
 
-            // Sleep an hour
-            thread::sleep(time::Duration::from_secs(60 * 60));
+            // Sleep 5 hours
+            thread::sleep(time::Duration::from_secs(60 * 60 * 5));
         }
     }
 
