@@ -30,7 +30,7 @@ impl DCIBot {
         use std::{thread, time};
 
         loop {
-            let now = Utc::now() + chrono::Duration::hours(12);
+            let now = Utc::now();
 
             // Get events within the next 24 hours
             let matching_events = self.get_events_matching(now)?;
