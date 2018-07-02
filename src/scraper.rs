@@ -42,7 +42,8 @@ impl DCIScraper {
              location TEXT NOT NULL,
              title TEXT NOT NULL UNIQUE,
              timezone TEXT NOT NULL,
-             lineup TEXT NOT NULL
+             lineup TEXT NOT NULL,
+             posted TEXT
              )",
             &[],
         )?;

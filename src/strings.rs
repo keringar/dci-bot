@@ -2,7 +2,7 @@
 // pub const SCORE_URL: &'static str = "https://www.dci.org/scores";
 pub const EVENT_URL: &'static str = "https://www.dci.org/events";
 pub const BASE_URL: &'static str = "https://www.dci.org";
-pub const DB_PATH: &'static str = "./event.sqlite3";
+pub const DB_PATH: &'static str = "./event.db";
 
 /// DCI event list query names
 pub const START_TIME_QUERY: &'static str = "startDate";

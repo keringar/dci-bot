@@ -1,6 +1,7 @@
 extern crate chrono;
 #[macro_use]
 extern crate failure;
+extern crate orca;
 extern crate reqwest;
 extern crate rusqlite;
 extern crate select;
@@ -12,6 +13,11 @@ mod scraper;
 mod strings;
 
 fn main() {
+    if std::env::var("DCI_PASSWORD").is_err() || std::env::var("DCI_SECRET").is_err() {
+        eprintln!("DCI_PASSWORD and/or DCI_SECRET not set");
+        std::process::exit(-1);
+    }
+
     println!("Starting DCI automated notification bot");
 
     let scraper = match scraper::DCIScraper::new() {
@@ -37,8 +43,5 @@ fn main() {
         std::process::exit(-1);
     }
 
-    if let Err(e) = bot_thread.join().expect("Bot thread panicked!") {
-        eprintln!("Runtime error in bot thread: {}", e);
-        std::process::exit(-1);
-    }
+    bot_thread.join().expect("Bot thread panicked!");
 }
