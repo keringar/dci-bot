@@ -63,7 +63,7 @@ impl DCIScraper {
             }
 
             // Sleep 5 hours
-            thread::sleep(time::Duration::from_secs(60 * 60 * 5));
+            thread::sleep(time::Duration::from_secs(60 * 60));
         }
     }
 

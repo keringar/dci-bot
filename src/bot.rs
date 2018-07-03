@@ -35,7 +35,8 @@ impl DCIBot {
             // Get events within the next 24 hours
             let matching_events = self.get_events_matching(now)?;
 
-            // If the time until the closest event is less than 6 hours away, post
+            // If the time until the closest event is less than 10 hours away, post next n
+            // events in the next 10-(10 + 4 * n) evvents
             let mut posted_events = Vec::new();
             let mut time_to_search = 10;
             for event in matching_events {
@@ -162,7 +163,7 @@ impl DCIBot {
         // Generate the table and stuff
         let mut title = if let Some(event) = events.iter().next() {
             format!(
-                "[Show Thread] {}/{}: ",
+                "[Show Thread] {}/{}:",
                 event.event_date.month(),
                 event.event_date.day()
             )
@@ -171,9 +172,10 @@ impl DCIBot {
         };
 
         for event in events {
-            let string = format!("{} - {}", event.title, event.location);
+            let string = format!(" {} - {} |", event.title, event.location);
             title.push_str(&string);
         }
+        title.pop();
 
         let mut text = String::new();
         for event in events {
@@ -200,6 +202,8 @@ impl DCIBot {
                 text.push_str("\n---\n\n");
             }
         }
+
+        eprintln!("{}\n\n{}", title, text);
 
         // Look for reddit login info
         use std::env::var;
