@@ -6,6 +6,7 @@ use scraper::EventListing;
 use serde_json;
 use std;
 use strings::*;
+use url::form_urlencoded::byte_serialize;
 
 pub struct DCIBot {
     connection: Connection,
@@ -180,7 +181,7 @@ impl DCIBot {
         let mut text = String::new();
         for event in events {
             let string = format!(
-                "**{} - {}**\n\n[DCI Page]({})\n\n**Lineup and Times**\n\n*All times {} and subject to change*\n\n",
+                "**{} - {}**\n\n[DCI Page]({})\n\n**Lineup & Times**\n\n*All times {} and subject to change*\n\n",
                 event.title, event.location, event.event_url, event.timezone
             );
             text.push_str(&string);
@@ -203,7 +204,7 @@ impl DCIBot {
             }
         }
 
-        eprintln!("{}\n\n{}", title, text);
+        let url_encoded_text: String = byte_serialize(text.as_bytes()).collect();
 
         // Look for reddit login info
         use std::env::var;
@@ -214,7 +215,7 @@ impl DCIBot {
 
         let mut reddit = orca::App::new("/r/drumcorps show bot", "0.1", "warren")?;
         reddit.authorize_script("AOBwXdKkVWSjTg", &secret, "DrumCorpsBot", &pass)?;
-        reddit.submit_self("/r/Gumland", &title, &text, false)?;
+        reddit.submit_self("/r/Gumland", &title, &url_encoded_text, false)?;
 
         Ok(())
     }

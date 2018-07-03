@@ -7,6 +7,7 @@ extern crate rusqlite;
 extern crate select;
 extern crate serde;
 extern crate serde_json;
+extern crate url;
 
 mod bot;
 mod scraper;

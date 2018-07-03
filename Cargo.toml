@@ -11,6 +11,7 @@ chrono = "0.4.4"
 orca = "0.5.0"
 serde_json = "1.0.22"
 serde = "1.0.67"
+url = "1.7.0"
 
 [dependencies.rusqlite]
 version = "0.13.0"
