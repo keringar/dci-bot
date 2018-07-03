@@ -180,7 +180,7 @@ impl DCIBot {
         let mut text = String::new();
         for event in events {
             let string = format!(
-                "**{} - {}**\n\n[DCI Page]({})\n\n**Lineup & Times**\n\n*All times {} and subject to change*\n\n",
+                "**{} - {}**\n\n[DCI Page]({})\n\n**Lineup \\& Times**\n\n*All times {} and subject to change*\n\n",
                 event.title, event.location, event.event_url, event.timezone
             );
             text.push_str(&string);
