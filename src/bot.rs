@@ -208,14 +208,14 @@ impl DCIBot {
 
         // Look for reddit login info
         use std::env::var;
-        let (pass, secret) = match (var("DCI_PASSWORD"), var("DCI_SECRET")) {
+        let (pass, secret) = match (var(ENV_PASSWORD)), var(ENV_SECRET)) {
             (Ok(pass), Ok(secret)) => (pass, secret),
             (_, _) => bail!("DCI_PASSWORD and/or DCI_SECRET not set"),
         };
 
         let mut reddit = orca::App::new("/r/drumcorps show bot", "0.1", "warren")?;
-        reddit.authorize_script("AOBwXdKkVWSjTg", &secret, "DrumCorpsBot", &pass)?;
-        reddit.submit_self("/r/Gumland", &title, &url_encoded_text, false)?;
+        reddit.authorize_script(APP_ID, &secret, USERNAME, &pass)?;
+        reddit.submit_self(SUBREDDIT, &title, &url_encoded_text, false)?;
 
         Ok(())
     }

@@ -20,3 +20,10 @@ pub const TIME_TABLE: &'static str = "time-table";
 pub const INFO_SECTION_CLASS: &'static str = "info-holder";
 pub const INFO_DATE_MARKER: &'static str = "/slice/dist/images/icons/watch_grey_icon.svg";
 pub const INFO_LOCATION_MARKER: &'static str = "/slice/dist/images/icons/location_grey_icon.svg";
+
+/// Reddit stuff
+pub const SUBREDDIT: &'static str = "/r/drumcorps";
+pub const APP_ID: &'static str = "AOBwXdKkVWSjTg";
+pub const USERNAME: &'static str = "DrumCorpsBot";
+pub const ENV_PASSWORD: &'static str = "DCI_PASSWORD";
+pub const ENV_SECRET: &'static str = "DCI_SECRET";

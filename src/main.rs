@@ -14,7 +14,8 @@ mod scraper;
 mod strings;
 
 fn main() {
-    if std::env::var("DCI_PASSWORD").is_err() || std::env::var("DCI_SECRET").is_err() {
+    if std::env::var(strings::ENV_PASSWORD).is_err() || std::env::var(strings::ENV_SECRET).is_err()
+    {
         eprintln!("DCI_PASSWORD and/or DCI_SECRET not set");
         std::process::exit(-1);
     }
