@@ -37,7 +37,7 @@ impl DCIBot {
             let matching_events = self.get_events_matching(now)?;
 
             // If the time until the closest event is less than 10 hours away, post next n
-            // events in the next 10-(10 + 4 * n) evvents
+            // events in the next 10-(10 + 4 * n) events
             let mut posted_events = Vec::new();
             let mut time_to_search = 10;
             for event in matching_events {
@@ -86,6 +86,7 @@ impl DCIBot {
                 row.get(4),
                 row.get(5),
                 row.get(6),
+                row.get(8),
             )
         })?;
 
@@ -98,6 +99,7 @@ impl DCIBot {
                 row.get(4),
                 row.get(5),
                 row.get(6),
+                row.get(8),
             )
         })?;
 
@@ -135,6 +137,7 @@ impl DCIBot {
         title: String,
         timezone: String,
         lineup: String,
+        human_date: String,
     ) -> Result<EventListing, Error> {
         let date = DateTime::parse_from_rfc3339(&date)?;
         let events: Vec<(String, String)> = serde_json::from_str(&lineup)?;
@@ -146,27 +149,16 @@ impl DCIBot {
             title,
             timezone,
             lineup: events,
+            human_date,
         })
     }
 
     fn create_post(&self, events: &Vec<EventListing>) -> Result<(), Error> {
-        // Update DB to show we've already posted
-        let now = Utc::now();
-        for event in events {
-            println!("Posting {}", event.title);
-
-            self.connection.execute(
-                "UPDATE events SET posted=? WHERE date=?",
-                &[&now, &event.event_date],
-            )?;
-        }
-
         // Generate the table and stuff
         let mut title = if let Some(event) = events.iter().next() {
             format!(
-                "[Show Thread] {}/{}:",
-                event.event_date.month(),
-                event.event_date.day()
+                "[Show Thread] {}",
+                self.format_human_time(&event.human_date)?
             )
         } else {
             return Ok(());
@@ -217,6 +209,33 @@ impl DCIBot {
         reddit.authorize_script(APP_ID, &secret, USERNAME, &pass)?;
         reddit.submit_self(SUBREDDIT, &title, &url_encoded_text, false)?;
 
+        // Update DB to show we've already posted
+        let now = Utc::now();
+        for event in events {
+            println!("Posting {}", event.title);
+
+            self.connection.execute(
+                "UPDATE events SET posted=? WHERE date=?",
+                &[&now, &event.event_date],
+            )?;
+        }
+
         Ok(())
+    }
+
+    fn format_human_time(&self, human_date: &str) -> Result<String, Error> {
+        use chrono::format;
+
+        let mut parsed = format::Parsed::new();
+        let formatting_items = vec![
+            format::Item::Numeric(format::Numeric::Day, format::Pad::Zero),
+            format::Item::Space(" "),
+            format::Item::Fixed(format::Fixed::ShortMonthName),
+            format::Item::Space(" "),
+        ];
+
+        format::parse(&mut parsed, &human_date, formatting_items.into_iter())?;
+
+        Ok(format!("{}/{}", parsed.month.unwrap(), parsed.day.unwrap()))
     }
 }

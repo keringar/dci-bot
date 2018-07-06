@@ -22,6 +22,8 @@ pub struct EventListing {
     pub timezone: String,
     /// Sorted lineup that contains a time and an associated event
     pub lineup: Vec<(String, String)>,
+    /// Human readable date
+    pub human_date: String,
 }
 
 #[derive(Debug)]
@@ -43,7 +45,8 @@ impl DCIScraper {
              title TEXT NOT NULL UNIQUE,
              timezone TEXT NOT NULL,
              lineup TEXT NOT NULL,
-             posted TEXT
+             posted TEXT,
+             human_date TEXT NOT NULL
              )",
             &[],
         )?;
@@ -88,12 +91,18 @@ impl DCIScraper {
 
                 // Get the info section of the event box
                 let info_box = child.find(Attr("class", INFO_SECTION_CLASS)).next();
-                let (title, event_date, location) = match info_box {
+                let (title, event_date, location, human_date) = match info_box {
                     Some(info) => {
                         // Parse title
                         let title = match info.find(Name("h3")).next() {
                             Some(title) => title.text(),
                             None => bail!("Couldn't parse event title. Did the website change?"),
+                        };
+
+                        // Parse human readable day
+                        let human_date = match document.find(Class("main-date")).next() {
+                            Some(hd) => hd.text(),
+                            None => bail!("Couldn't get human readable date"),
                         };
 
                         // Parse event date
@@ -120,7 +129,7 @@ impl DCIScraper {
                             None => bail!("Couldn't find location marker. Did the website change?"),
                         };
 
-                        (title, date, location)
+                        (title, date, location, human_date)
                     }
                     None => bail!("Couldn't find info box"),
                 };
@@ -132,6 +141,7 @@ impl DCIScraper {
                     title,
                     timezone,
                     lineup,
+                    human_date,
                 };
 
                 results.push(listing);
@@ -187,8 +197,8 @@ impl DCIScraper {
         let json_lineup = serde_json::to_string(&event.lineup)?;
 
         let rows_updated = self.connection.execute(
-            "INSERT OR REPLACE INTO events (url, date, location, title, timezone, lineup)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT OR REPLACE INTO events (url, date, location, title, timezone, lineup, human_date)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             &[
                 &event.event_url,
                 &event.event_date,
@@ -196,6 +206,7 @@ impl DCIScraper {
                 &event.title,
                 &event.timezone,
                 &json_lineup,
+                &event.human_date
             ],
         )?;
 
