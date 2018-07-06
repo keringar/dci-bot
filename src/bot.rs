@@ -208,7 +208,7 @@ impl DCIBot {
 
         // Look for reddit login info
         use std::env::var;
-        let (pass, secret) = match (var(ENV_PASSWORD)), var(ENV_SECRET)) {
+        let (pass, secret) = match (var(ENV_PASSWORD), var(ENV_SECRET)) {
             (Ok(pass), Ok(secret)) => (pass, secret),
             (_, _) => bail!("DCI_PASSWORD and/or DCI_SECRET not set"),
         };
