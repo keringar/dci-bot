@@ -31,25 +31,29 @@ impl DCIBot {
         use std::{thread, time};
 
         loop {
-            let now = Utc::now();
+            let now = Local::now();
 
             // Get events within the next 24 hours
-            let matching_events = self.get_events_matching(now)?;
+            let mut matching_events =
+                self.get_events_matching(now.with_timezone(&chrono::offset::Utc))?;
 
-            // If the time until the closest event is less than 10 hours away, post next n
-            // events in the next 10-(10 + 4 * n) events
-            let mut posted_events = Vec::new();
-            let mut time_to_search = 10;
-            for event in matching_events {
-                let time_since_today = event.event_date.signed_duration_since(now);
+            if matching_events.len() > 0 {
+                matching_events.sort_unstable_by(|a, b| a.event_date.cmp(&b.event_date));
 
-                if time_since_today <= chrono::Duration::hours(time_to_search) {
-                    time_to_search += 4;
-                    posted_events.push(event);
+                if let Some(event) = matching_events.iter().next() {
+                    let elapsed_time = event.event_date.signed_duration_since(now);
+
+                    println!(
+                        "{} hours until {} starts",
+                        elapsed_time.num_hours(),
+                        event.title
+                    );
+
+                    if elapsed_time.num_hours() < 12 {
+                        self.create_post(&matching_events)?;
+                    }
                 }
             }
-
-            self.create_post(&posted_events)?;
 
             // Sleep an hour
             thread::sleep(time::Duration::from_secs(60 * 60));
@@ -58,23 +62,10 @@ impl DCIBot {
 
     // Gets all events within the next 24 hours of the specified date
     fn get_events_matching(&self, date: DateTime<Utc>) -> Result<Vec<EventListing>, Error> {
-        use chrono;
-
-        let today = date;
-        let tomorrow = date + chrono::Duration::days(1);
-
         let sql_today = format!(
-            r"SELECT * FROM events WHERE date LIKE '{}-{:02}-{:02}%' AND posted IS NULL",
-            today.year(),
-            today.month(),
-            today.day()
-        );
-
-        let sql_tomorrow = format!(
-            r"SELECT * FROM events WHERE date LIKE '{}-{:02}-{:02}%' AND posted IS NULL",
-            tomorrow.year(),
-            tomorrow.month(),
-            tomorrow.day()
+            r"SELECT * FROM events WHERE human_date LIKE '{}/{}%' AND posted IS NULL",
+            date.month(),
+            date.day()
         );
 
         let mut today_stmt = self.connection.prepare(&sql_today)?;
@@ -90,43 +81,18 @@ impl DCIBot {
             )
         })?;
 
-        let mut tomorrow_stmt = self.connection.prepare(&sql_tomorrow)?;
-        let tomorrow_rows = tomorrow_stmt.query_and_then(&[], |row| {
-            self.create_listing_from_strings(
-                row.get(1),
-                row.get(2),
-                row.get(3),
-                row.get(4),
-                row.get(5),
-                row.get(6),
-                row.get(8),
-            )
-        })?;
+        let found: Result<Vec<EventListing>, Error> = today_rows.collect();
 
-        let listings: Result<Vec<EventListing>, Error> = today_rows.chain(tomorrow_rows).collect();
-
-        match listings {
-            Ok(listings) => {
-                let filtered_listings = listings
-                    .into_iter()
-                    .filter(|event| {
-                        let time_since_today = event.event_date.signed_duration_since(today);
-
-                        println!(
-                            "Event {} is {} hours and {} minutes away",
-                            event.title,
-                            time_since_today.num_hours(),
-                            time_since_today.num_minutes() - time_since_today.num_hours() * 60
-                        );
-                        time_since_today <= chrono::Duration::days(1)
-                            && time_since_today >= chrono::Duration::zero()
-                    })
-                    .collect();
-
-                Ok(filtered_listings)
-            }
-            Err(e) => Err(e),
+        if let Ok(ref found) = found {
+            println!(
+                "Found {} DCI events on {}/{}",
+                found.len(),
+                date.month(),
+                date.day(),
+            );
         }
+
+        found
     }
 
     fn create_listing_from_strings(
@@ -156,10 +122,7 @@ impl DCIBot {
     fn create_post(&self, events: &Vec<EventListing>) -> Result<(), Error> {
         // Generate the table and stuff
         let mut title = if let Some(event) = events.iter().next() {
-            format!(
-                "[Show Thread] {}",
-                self.format_human_time(&event.human_date)?
-            )
+            format!("[Show Thread] {}:", event.human_date)
         } else {
             return Ok(());
         };
@@ -221,21 +184,5 @@ impl DCIBot {
         }
 
         Ok(())
-    }
-
-    fn format_human_time(&self, human_date: &str) -> Result<String, Error> {
-        use chrono::format;
-
-        let mut parsed = format::Parsed::new();
-        let formatting_items = vec![
-            format::Item::Numeric(format::Numeric::Day, format::Pad::Zero),
-            format::Item::Space(" "),
-            format::Item::Fixed(format::Fixed::ShortMonthName),
-            format::Item::Space(" "),
-        ];
-
-        format::parse(&mut parsed, &human_date, formatting_items.into_iter())?;
-
-        Ok(format!("{}/{}", parsed.month.unwrap(), parsed.day.unwrap()))
     }
 }

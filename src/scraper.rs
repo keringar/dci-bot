@@ -101,7 +101,7 @@ impl DCIScraper {
 
                         // Parse human readable day
                         let human_date = match document.find(Class("main-date")).next() {
-                            Some(hd) => hd.text(),
+                            Some(hd) => self.format_human_time(&hd.text())?,
                             None => bail!("Couldn't get human readable date"),
                         };
 
@@ -224,5 +224,21 @@ impl DCIScraper {
                 (END_TIME_QUERY, &date_query),
             ])
             .send()
+    }
+
+    fn format_human_time(&self, human_date: &str) -> Result<String, Error> {
+        use chrono::format;
+
+        let mut parsed = format::Parsed::new();
+        let formatting_items = vec![
+            format::Item::Numeric(format::Numeric::Day, format::Pad::Zero),
+            format::Item::Space(" "),
+            format::Item::Fixed(format::Fixed::ShortMonthName),
+            format::Item::Space(" "),
+        ];
+
+        format::parse(&mut parsed, &human_date, formatting_items.into_iter())?;
+
+        Ok(format!("{}/{}", parsed.month.unwrap(), parsed.day.unwrap()))
     }
 }
