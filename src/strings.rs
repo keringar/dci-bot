@@ -22,7 +22,7 @@ pub const INFO_DATE_MARKER: &'static str = "/slice/dist/images/icons/watch_grey_
 pub const INFO_LOCATION_MARKER: &'static str = "/slice/dist/images/icons/location_grey_icon.svg";
 
 /// Reddit stuff
-pub const SUBREDDIT: &'static str = "/r/gumland";
+pub const SUBREDDIT: &'static str = "/r/drumcorps";
 pub const APP_ID: &'static str = "AOBwXdKkVWSjTg";
 pub const USERNAME: &'static str = "DrumCorpsBot";
 pub const ENV_PASSWORD: &'static str = "DCI_PASSWORD";
