@@ -59,7 +59,7 @@ impl DCIScraper {
 
         loop {
             // Scrape tomorrow's entries
-            for entry in self.scrape(Utc::now() - chrono::Duration::days(1))? {
+            for entry in self.scrape(Utc::now() + chrono::Duration::days(1))? {
                 // If we found something, update the db
                 let row_count = self.write_to_db(&entry)?;
                 println!("Updated {} row(s)", row_count);
