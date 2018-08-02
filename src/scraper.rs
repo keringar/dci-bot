@@ -3,7 +3,7 @@ use chrono::prelude::*;
 use failure::Error;
 use reqwest;
 use rusqlite::Connection;
-use select::{document::Document, predicate::*};
+use select::{document::Document, node, predicate::*};
 use serde_json;
 use strings::*;
 
@@ -59,7 +59,7 @@ impl DCIScraper {
 
         loop {
             // Scrape tomorrow's entries
-            for entry in self.scrape(Utc::now() + chrono::Duration::days(1))? {
+            for entry in self.scrape(Utc::now() - chrono::Duration::days(1))? {
                 // If we found something, update the db
                 let row_count = self.write_to_db(&entry)?;
                 println!("Updated {} row(s)", row_count);
@@ -81,61 +81,25 @@ impl DCIScraper {
         if let Some(container) = document.find(Class(ITEMS_PARENT_CONTAINER)).next() {
             // Each item is an event
             for child in container.children() {
-                // Find the details link to parse the timezone and linup
-                let details_url: String = child
-                    .find(Attr("class", ITEMS_LINK_DETAILS))
-                    .filter_map(|n| n.attr("href"))
-                    .take(1)
-                    .collect();
-                let (lineup, timezone) = self.scrape_details(&details_url)?;
-
-                // Get the info section of the event box
-                let info_box = child.find(Attr("class", INFO_SECTION_CLASS)).next();
-                let (title, event_date, location, human_date) = match info_box {
-                    Some(info) => {
-                        // Parse title
-                        let title = match info.find(Name("h3")).next() {
-                            Some(title) => title.text(),
-                            None => bail!("Couldn't parse event title. Did the website change?"),
-                        };
-
-                        // Parse human readable day
-                        let human_date = match document.find(Class("main-date")).next() {
-                            Some(hd) => self.format_human_time(&hd.text())?,
-                            None => bail!("Couldn't get human readable date"),
-                        };
-
-                        // Parse event date
-                        let date_marker = Attr("src", INFO_DATE_MARKER);
-                        let date = match info.find(date_marker).next() {
-                            Some(date) => match date.attr("alt") {
-                                Some(ts) => {
-                                    DateTime::parse_from_str(ts, "%Y-%m-%dT%H:%M:%S%.3f%z")?
-                                }
-                                None => {
-                                    bail!("Couldn't get date timestamp. Did the website change?")
-                                }
-                            },
-                            None => bail!("Couldn't parse date. Did the website change?"),
-                        };
-
-                        // Parse location
-                        let location_marker = Attr("src", INFO_LOCATION_MARKER);
-                        let location = match info.find(location_marker).next() {
-                            Some(location) => match location.parent() {
-                                Some(parent) => parent.text().trim().to_string(),
-                                None => bail!("Couldn't find location text"),
-                            },
-                            None => bail!("Couldn't find location marker. Did the website change?"),
-                        };
-
-                        (title, date, location, human_date)
+                let (lineup, timezone, url) = match self.scrape_details(&child) {
+                    Ok(v) => v,
+                    Err(e) => {
+                        println!("Error while scraping details:\n\t{}", e);
+                        continue;
                     }
-                    None => bail!("Couldn't find info box"),
                 };
 
+                let (title, event_date, location, human_date) =
+                    match self.scrape_info(&document, &child) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            println!("Error while scraping info:\n\t{}", e);
+                            continue;
+                        }
+                    };
+
                 let listing = EventListing {
-                    event_url: format!("{}{}", BASE_URL, details_url),
+                    event_url: format!("{}{}", BASE_URL, url),
                     event_date,
                     location,
                     title,
@@ -151,7 +115,64 @@ impl DCIScraper {
         Ok(results)
     }
 
-    fn scrape_details(&self, url: &str) -> Result<(Vec<(String, String)>, String), Error> {
+    // Get the info section of the event box
+    fn scrape_info(
+        &self,
+        document: &Document,
+        child: &node::Node,
+    ) -> Result<(String, DateTime<FixedOffset>, String, String), Error> {
+        let info_box = child.find(Attr("class", INFO_SECTION_CLASS)).next();
+        match info_box {
+            Some(info) => {
+                // Parse title
+                let title = match info.find(Name("h3")).next() {
+                    Some(title) => title.text(),
+                    None => bail!("Couldn't parse event title. Did the website change?"),
+                };
+
+                // Parse human readable day
+                let human_date = match document.find(Class("main-date")).next() {
+                    Some(hd) => self.format_human_time(&hd.text())?,
+                    None => bail!("Couldn't get human readable date"),
+                };
+
+                // Parse event date
+                let date_marker = Attr("src", INFO_DATE_MARKER);
+                let date = match info.find(date_marker).next() {
+                    Some(date) => match date.attr("alt") {
+                        Some(ts) => DateTime::parse_from_str(ts, "%Y-%m-%dT%H:%M:%S%.3f%z")?,
+                        None => bail!("Couldn't get date timestamp. Did the website change?"),
+                    },
+                    None => bail!("Couldn't parse date. Did the website change?"),
+                };
+
+                // Parse location
+                let location_marker = Attr("src", INFO_LOCATION_MARKER);
+                let location = match info.find(location_marker).next() {
+                    Some(location) => match location.parent() {
+                        Some(parent) => parent.text().trim().to_string(),
+                        None => bail!("Couldn't find location text"),
+                    },
+                    None => bail!("Couldn't find location marker. Did the website change?"),
+                };
+
+                Ok((title, date, location, human_date))
+            }
+            None => bail!("Couldn't find info box"),
+        }
+    }
+
+    fn scrape_details(
+        &self,
+        child: &node::Node,
+    ) -> Result<(Vec<(String, String)>, String, String), Error> {
+        // Find the details link to parse the timezone and linup
+        let url: String = child
+            .find(Attr("class", ITEMS_LINK_DETAILS))
+            .filter_map(|n| n.attr("href"))
+            .take(1)
+            .collect();
+
         // Load the details page
         let event_page_url = format!("{}{}", BASE_URL, url);
         let response = reqwest::get(&event_page_url)?;
@@ -189,7 +210,7 @@ impl DCIScraper {
             None => bail!("Couldn't parse times table. Did the website change?"),
         };
 
-        Ok((lineup, timezone))
+        Ok((lineup, timezone, url))
     }
 
     // Returns the number of rows updated upon success
